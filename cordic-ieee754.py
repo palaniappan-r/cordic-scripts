@@ -1,5 +1,7 @@
 import struct
 import math
+from termcolor import colored as c
+import numpy as np
 
 def pprint_ieee_754(bin_str):
     s_len = 1
@@ -16,7 +18,13 @@ def ieee754_add(bin_num1, bin_num2):
     dec_num1 = struct.unpack('!f', struct.pack('!I', int(bin_num1, 2)))[0]
     dec_num2 = struct.unpack('!f', struct.pack('!I', int(bin_num2, 2)))[0]
     result = dec_num1 + dec_num2
-    return ''.join(f"{byte:08b}" for byte in struct.pack('!f', result))
+    
+    bin_dec_num1 = ''.join(f"{byte:08b}" for byte in struct.pack('!f', dec_num1))
+    bin_dec_num2 = ''.join(f"{byte:08b}" for byte in struct.pack('!f', dec_num2))
+    bin_result = ''.join(f"{byte:08b}" for byte in struct.pack('!f', result))
+    
+    print(f"{bin_dec_num1} + {bin_dec_num2} = {bin_result}")
+    return bin_result
 
 def float_to_binary_ieee_754(number):
     ieee_754_bytes = struct.pack('>f', number)
@@ -39,10 +47,13 @@ def neg_bin_str(bin_str):
     return sign_bit+bin_str[1:]
 
 def decrement(bin_str,a):
+    print(f"Input Exp : {bin_str}")
     bin_value = int(bin_str, 2)
     masked_value = bin_value & 0xFF
     decremented_value = (masked_value - a) & 0xFF
-    return format(decremented_value, '08b')
+    bin_e = format(decremented_value, '08b')
+    print(f"Output Exp : {bin_e}")
+    return bin_e
 
 def exp_bin_str(bin_str,e):
     sign = bin_str[0]
@@ -51,39 +62,57 @@ def exp_bin_str(bin_str,e):
     exp_bin = sign + decrement(exp,e) + mant
     return exp_bin
 
-def generate_lookup_table(num_entries):
-    lookup_table = []
-    for i in range(num_entries):
-        angle_radians = math.atan(2**(-i))
-        angle_degrees = math.degrees(angle_radians)
-        lookup_table.append(angle_degrees)
-    return lookup_table
+def lookup_table(i):
+    angle_radians = math.atan(2**(-i))
+    angle_degrees = math.degrees(angle_radians)
+    return angle_degrees
 
-lookup_table = generate_lookup_table(12)
+# lookup_table = generate_lookup_table(12)
 angle_degrees = int(input("Enter angle in degrees: "))
+
+cos_val = np.cos(np.deg2rad(angle_degrees))
+sin_val = np.sin(np.deg2rad(angle_degrees))
+
+cos_val_bin = float_to_binary_ieee_754(cos_val)
+sin_val_bin = float_to_binary_ieee_754(sin_val)
 
 x0 = float_to_binary_ieee_754(1.0)
 y0 = float_to_binary_ieee_754(0.0)
 
 z0 = angle_degrees
 
-for i in range(0, 12):
+i = 0
+
+while(True):
     if z0 > 0:
         x1 = ieee754_add(x0, exp_bin_str(y0,i))
         y1 = ieee754_add(y0, neg_bin_str(exp_bin_str(x0,i)))
-        z1 = z0 - lookup_table[i]
+        z1 = z0 - lookup_table(i)
     else:
         x1 = ieee754_add(x0, neg_bin_str(exp_bin_str(y0,i)))
         y1 = ieee754_add(y0, exp_bin_str(x0,i))
-        z1 = z0 + lookup_table[i]
-        
+        z1 = z0 + lookup_table(i)
     x0 = x1
     y0 = y1
     z0 = z1
     
-    print(f"\ni = {i} x1 = {x1} [{binary_ieee_754_to_float(x1)}] y1 = {y1} [{binary_ieee_754_to_float(y1)}] z1 = {z1}")
+    x_r = float_to_binary_ieee_754(binary_ieee_754_to_float(x1) * 0.6073)
+    y_r = float_to_binary_ieee_754(binary_ieee_754_to_float(y1) * 0.6073)
+    
+    if(i > 41):
+        break
+    
+    i += 1
+    
+    pprint_ieee_754(x1)
+    pprint_ieee_754(y1)
+    print(f"\ni = {i} x1 = {x1} [{0.6073 * binary_ieee_754_to_float(x1)}] y1 = {y1} [{0.6073 * binary_ieee_754_to_float(y1)}] z1 = {z1}")
+    print("-----------------------------------------------------------------------------------")
     
 x = 0.6073 * binary_ieee_754_to_float(x1)
 y = 0.6073 * binary_ieee_754_to_float(y1)
 
-print(f"\n\ncos{angle_degrees} = {x} \nsin{angle_degrees} = {y}")
+print(f"\n\ncos{angle_degrees} = {x} | cos{angle_degrees} = {cos_val}\n")
+print(f"sin{angle_degrees} = {y} | sin{angle_degrees} = {sin_val}")
+print(i)
+print(f"\nError in cos{angle_degrees} = {100 * (np.cos(np.deg2rad(angle_degrees)) - x)/np.cos(np.deg2rad(angle_degrees))} \n")
